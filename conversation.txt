@@ -1,0 +1,149 @@
+--Créé une application python avec streamlit qui permette de comparer les cours de BTC, ETH, or et argent dans le temps.
+
+Voici l’application : app.py, avec requirements.txt pour les dépendances. Je n’ai pas pu la lancer ici, car mon environnement n’a pas d’accès réseau, donc elle n’est pas testée.
+
+Pour la lancer :
+
+bash
+pip install -r requirements.txt
+streamlit run app.py
+
+Ce qu’elle fait
+
+Actifs : BTC, ETH, or et argent, que l’on peut activer ou désactiver. Les données viennent de Yahoo Finance (BTC-USD, ETH-USD, GC=F, SI=F) et sont mises en cache pendant 1 heure.
+Période : de 1 mois à 5 ans, ou des dates personnalisées.
+Deux modes d’affichage : en base 100, pour comparer des actifs de prix très différents (un BTC à 90 000 $ face à l’argent à 30 $), ou en prix réel. Une échelle logarithmique est disponible.
+Devise : USD ou EUR. La conversion en euros utilise le taux EURUSD=X.
+Graphique interactif (Plotly) avec zoom et curseur de période.
+Indicateurs : performance, plus haut et plus bas, volatilité annualisée et drawdown maximum, présentés en cartes et en tableau.
+Corrélations : matrice des rendements hebdomadaires entre les actifs.
+Export : les données peuvent être téléchargées en CSV.
+
+Les cryptos cotent 7 jours sur 7 et les métaux seulement en semaine. J’ai donc reporté le dernier cours connu sur les jours sans cotation et fait démarrer la comparaison à la première date où tous les actifs ont des données. Pour l’or et l’argent, ce sont les contrats à terme (futures), donc leur cours peut différer légèrement du cours spot.
+
+Je peux ajouter d’autres actifs (S&P 500, platine…), des moyennes mobiles ou un mode sombre si vous voulez.
+
+App
+Code
+·PY
+Requirements
+TXT
+
+--il n'y a pas de graphique, voici une partie des logs
+ERROR ['BTC-USD']: Exception('BTC-USD: No timezone found, symbol may be delisted')
+ERROR ['EURUSD=X']: Exception('EURUSD=X: No timezone found, symbol may be delisted')
+
+Ce message vient presque toujours d’une version trop ancienne de yfinance : Yahoo a modifié son API et les anciennes versions échouent avec ce type d’erreur. Je rends aussi le code plus robuste : un ticker en échec n’empêchera plus les autres de s’afficher, et l’erreur sera visible dans l’interface.
+
+J’ai corrigé app.py et mis à jour requirements.txt. Je n’ai pas pu tester la récupération des données, car mon environnement n’a pas d’accès réseau. Seule la syntaxe du fichier est vérifiée.
+
+Ce qu’il faut faire de votre côté
+
+Mettre à jour yfinance, c’est probablement la vraie cause de votre erreur :
+bash
+pip install -U yfinance
+Relancer l’application avec streamlit run app.py.
+
+Ce que j’ai changé dans le code
+
+Les cours sont maintenant téléchargés ticker par ticker. Un échec sur un actif n’empêche plus d’afficher les autres.
+Si un téléchargement échoue, un avertissement apparaît dans l’interface avec le message d’erreur, au lieu d’un écran vide.
+Si le taux EUR/USD est indisponible, l’application vous le dit et vous suggère de repasser en USD.
+Un bouton « 🔄 Rafraîchir les données » dans la barre latérale vide le cache, utile après une erreur temporaire.
+
+Si l’erreur persiste après la mise à jour, c’est sans doute un blocage temporaire de Yahoo, qui limite parfois les requêtes selon l’IP, ou un problème réseau (VPN, proxy, pare-feu). Dans ce cas, attendez quelques minutes, cliquez sur « Rafraîchir », ou envoyez-moi le message d’erreur affiché dans l’interface. Je pourrai alors proposer une autre source de données, par exemple CoinGecko pour les cryptos.
+
+App
+Code
+·PY
+Requirements
+TXT
+
+-- le bouton " Rafraîchir les données" ne fonctionne pas car streamlit n'a pas de methode "rerun". Corriges
+
+J’ai corrigé le bouton dans app.py. L’appel à st.rerun() n’existe que depuis Streamlit 1.27, et votre version est donc plus ancienne. Il est de toute façon inutile : un clic sur un bouton relance déjà le script. Le bouton se contente maintenant de vider le cache avec st.cache_data.clear(), et les données sont retéléchargées juste après.
+
+Si d’autres erreurs de ce genre apparaissent, par exemple sur use_container_width, le plus simple est de mettre Streamlit à jour :
+
+bash
+pip install -U streamlit
+App
+Code
+·PY
+
+-- je veux aussi pouvoir ajouter des assets en tapant leur nom ou  leur code, proposes l'autocomplétion
+
+Vous pouvez maintenant ajouter n’importe quel actif en tapant son nom ou son code, avec des suggestions qui apparaissent au fil de la frappe. Je n’ai pas pu tester l’application ici faute de réseau, seule la syntaxe est vérifiée.
+
+Pour l’activer, installez le composant d’autocomplétion et relancez l’application :
+
+bash
+pip install streamlit-searchbox
+streamlit run app.py
+
+Comment ça marche
+
+Un champ « ➕ Ajouter un actif » apparaît dans la barre latérale. En tapant apple, tesla ou sol, la recherche Yahoo Finance propose des résultats au format AAPL — Apple Inc. · NASDAQ.
+Si le code saisi (par exemple SOL-USD) n’est pas dans les suggestions, une option « Utiliser le code … » permet de l’employer directement.
+L’actif choisi est ajouté et coché automatiquement dans « Actifs à comparer ». Il fait ensuite partie du graphique, des indicateurs et des corrélations.
+Le bouton « 🗑️ Retirer les actifs ajoutés » remet la liste de départ (BTC, ETH, or, argent).
+Si streamlit-searchbox n’est pas installé, l’application bascule sur un champ de texte avec une liste de résultats. Cela fonctionne aussi, mais sans l’effet « en direct ».
+
+Les actifs ajoutés sont affichés dans leur devise de cotation d’origine. L’option EUR convertit en supposant des cours en USD, donc elle ne convient pas, par exemple, à une action cotée à Paris (MC.PA). Je peux détecter la devise de chaque actif et convertir correctement si vous le souhaitez.
+
+App
+Code
+·PY
+Requirements
+TXT
+
+-- Je veux pouvoir comparer les prix (par défaut) et les performances base 100. Fais deux graphiques
+
+J’ai modifié app.py : l’application affiche maintenant deux graphiques l’un sous l’autre. Je n’ai pas pu la lancer ici, seule la syntaxe du fichier est vérifiée.
+
+« 💰 Évolution des prix » vient en premier, avec les prix réels dans la devise choisie et un curseur de période en dessous pour zoomer.
+« 📊 Performance comparée (base 100) » vient ensuite. Tous les actifs partent de 100 à la première date où ils ont tous un cours, et cette date est indiquée sous le graphique.
+
+Le choix « Prix réel / Performance » de la barre latérale a disparu, puisque les deux sont toujours affichés. La case « Échelle logarithmique » s’applique aux deux graphiques. Elle sert surtout au graphique des prix, où le BTC écrase sinon l’argent.
+
+App
+Code
+·PY
+
+-- la liste de valeur se comporte mal. On peut ajouter qu'une valeur supplémentaire et non pas plusieurs. De plus leur valeurs par défaut reviennent après avoir été supprimées.
+Change le comportement. Et garde en stockage local html la sélection de valeurs de façon à les retrouver quand on revient sur l'application
+
+J’ai refait la gestion de la liste d’actifs dans app.py. Je n’ai pas pu la tester dans un navigateur ici, seule la syntaxe est vérifiée.
+
+Pour la sauvegarde dans le navigateur, installez le nouveau composant, puis relancez :
+
+bash
+pip install streamlit-js-eval
+streamlit run app.py
+
+Ajout de plusieurs actifs
+
+Le champ de recherche se vide après chaque ajout, ce qui permet d’en ajouter autant que voulu, l’un après l’autre.
+Un actif déjà présent n’est pas ajouté en double.
+
+Suppression et valeurs par défaut
+
+Les actifs sont affichés dans une liste « Actifs comparés », avec un bouton ✕ pour retirer chacun, y compris BTC, ETH, l’or et l’argent.
+Les quatre valeurs par défaut n’apparaissent qu’à la toute première visite. Si vous les retirez, elles ne reviennent plus.
+Un bouton « ↺ Valeurs par défaut » permet de les remettre volontairement.
+
+Mémorisation dans le navigateur
+
+La liste est enregistrée dans le localStorage de votre navigateur à chaque changement, et rechargée à l’ouverture suivante. Une liste vide est elle aussi mémorisée.
+La liste est propre à chaque navigateur et à chaque adresse (localhost:8501, par exemple).
+À l’ouverture, un court message « Chargement de vos actifs… » s’affiche le temps que le navigateur réponde.
+Sans streamlit-js-eval, l’application fonctionne, mais la liste n’est pas mémorisée, et la barre latérale vous l’indique.
+
+J’ai aussi remplacé le titre « BTC · ETH · Or · Argent » par « Comparateur de cours », puisque la liste est maintenant libre.
+
+App
+Code
+·PY
+Requirements
+TXT
+Claude travaille directement avec votre base de code

@@ -1,0 +1,7 @@
+streamlit
+yfinance>=0.2.60
+pandas
+numpy
+plotly
+streamlit-searchbox
+streamlit-js-eval
